@@ -1,0 +1,167 @@
+/* Reviews and Ratings: the parts that are not in wbcom-base.css. */
+.wbr-stars {
+	color: var(--wb-star);
+	letter-spacing: 0.05em;
+}
+
+/* The rating legend lines up with the other labels (browsers pad a legend). */
+.wb legend {
+	padding: 0;
+}
+
+/* Five radios drawn as stars. Source order is 5 to 1 so the sibling selector can fill leftwards. */
+.wbr-rate {
+	display: inline-flex;
+	flex-direction: row-reverse;
+	justify-content: flex-end;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.wbr-rate input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.wbr-rate label {
+	display: inline-grid;
+	place-items: center;
+	min-width: var(--wb-tap);
+	min-height: var(--wb-tap);
+	color: var(--wb-muted);
+	font-size: 1.75rem;
+	line-height: 1;
+	cursor: pointer;
+}
+
+/* An outline star until chosen; the chosen star and the ones before it fill. */
+.wbr-rate .wbr-on {
+	display: none;
+}
+
+.wbr-rate input:checked ~ label {
+	color: var(--wb-star);
+}
+
+.wbr-rate input:checked ~ label .wbr-on {
+	display: inline;
+}
+
+.wbr-rate input:checked ~ label .wbr-off {
+	display: none;
+}
+
+@media (hover: hover) {
+	.wbr-rate label:hover,
+	.wbr-rate label:hover ~ label {
+		color: var(--wb-star);
+	}
+
+	.wbr-rate label:hover .wbr-on,
+	.wbr-rate label:hover ~ label .wbr-on {
+		display: inline;
+	}
+
+	.wbr-rate label:hover .wbr-off,
+	.wbr-rate label:hover ~ label .wbr-off {
+		display: none;
+	}
+}
+
+.wb.wbr-badge {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.3rem;
+	white-space: nowrap;
+}
+
+.wb.wbr-badge[hidden] {
+	display: none;
+}
+
+.wbr-bars {
+	display: grid;
+	gap: 0.4rem;
+	margin: 0.75rem 0;
+}
+
+.wbr-bar-row {
+	display: grid;
+	grid-template-columns: 1.5rem 1fr 2rem;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.wbr-bar {
+	height: 8px;
+	background: var(--wb-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.wbr-bar > span {
+	display: block;
+	height: 100%;
+	background: var(--wb-star);
+}
+
+.wbr-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0.75rem 0;
+}
+
+.wbr-toolbar .wb-input {
+	width: auto;
+	min-width: 10rem;
+}
+
+.wb .wb-list {
+	margin: 0;
+	padding: 0;
+	padding-inline-start: 0;
+	list-style: none;
+}
+
+/* One even gap between the name line, title, text and owner reply; no part adds its own margin. */
+.wb .wb-item {
+	gap: 0.5rem;
+	overflow-wrap: anywhere;
+}
+
+.wb .wb-item > * {
+	margin: 0;
+}
+
+/* Show more sits on its own row at its own width; while hidden it takes no row (no wrapper). */
+.wbr-more {
+	justify-self: start;
+}
+
+/* The owner reply sets every box property a theme's blockquote style might change. */
+.wb .wbr-reply {
+	display: grid;
+	gap: 0.25rem;
+	padding-block: 0.25rem;
+	padding-inline: 1rem 0;
+	border: 0;
+	border-inline-start: 3px solid var(--wb-brand);
+	background: none;
+	font-style: normal;
+	quotes: none;
+}
+
+.wb .wbr-reply::before,
+.wb .wbr-reply::after {
+	content: none;
+}
+
+
+.wbr-rate input:focus-visible + label {
+	outline: 2px solid var(--wb-brand);
+	outline-offset: 2px;
+}

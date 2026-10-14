@@ -1,0 +1,95 @@
+---
+import { getEmDashCollection, search } from "emdash";
+import StillNeedHelp from "../../components/StillNeedHelp.astro";
+import Layout from "../../layouts/KnowXLayout.astro";
+import { HELP_PATH, loadConfig, pluginJson, resultHref, resultKind, resultSnippet, SEARCH_ROUTES, visitorIdFromCookie, VID_COOKIE } from "../../lib/knowx";
+import { kx } from "../../lib/knowx-strings";
+import "../../styles/wbcom-base.css";
+import "../../styles/knowx.css";
+
+const q = (Astro.url.searchParams.get("q") || "").trim();
+const honeypot = Astro.url.searchParams.get("website") || "";
+const config = await loadConfig(Astro.url.origin);
+let items: Array<{ collection: string; slug: string | null; title?: string; snippetHtml: string; excerpt: string }> = [];
+let failed = false;
+if (q) {
+	try {
+		const result = await search(q, { collections: config.searchCollections, limit: 20 });
+		const needExcerpt = result.items.some((item) => !resultSnippet(item.title || "", item.snippet));
+		const excerpts = new Map<string, string>();
+		if (needExcerpt) {
+			const docs = await getEmDashCollection("docs", { limit: 200 }).catch(() => null);
+			for (const entry of docs?.entries ?? []) {
+				const slug = typeof entry.data.slug === "string" && entry.data.slug ? entry.data.slug : String(entry.id || "");
+				const excerpt = typeof entry.data.excerpt === "string" ? entry.data.excerpt.trim() : "";
+				if (slug && excerpt) excerpts.set(slug, excerpt);
+			}
+		}
+		items = result.items.map((item) => {
+			const snippetHtml = resultSnippet(item.title || "", item.snippet);
+			const excerpt = !snippetHtml && item.slug ? excerpts.get(item.slug) || "" : "";
+			return { collection: item.collection, slug: item.slug, title: item.title, snippetHtml, excerpt };
+		});
+	} catch {
+		failed = true;
+	}
+	const vid = visitorIdFromCookie(Astro.cookies.get(VID_COOKIE)?.value);
+	if (!Astro.cookies.get(VID_COOKIE)?.value) {
+		Astro.cookies.set(VID_COOKIE, vid, { path: "/", maxAge: 31536000, sameSite: "lax" });
+	}
+	await pluginJson(Astro.url.origin, "log_search", {
+		q,
+		found: items.length,
+		website: honeypot,
+		vid,
+	}).catch(() => null);
+}
+
+const title = q ? kx.searchResultsFor(q) : kx.searchTitle;
+---
+
+<Layout title={title} description={kx.homeLead}>
+	<div class="wb kx">
+		<header class="kx-hero">
+			<h1>{title}</h1>
+			<form class="kx-search-form" action={`${HELP_PATH}/search`} method="get">
+				<label class="wb-sr" for="kx-q">{kx.searchPlaceholder}</label>
+				<input class="wb-input" id="kx-q" type="search" name="q" value={q} placeholder={kx.searchPlaceholder} />
+				<input class="kx-hp" type="text" name="website" tabindex="-1" autocomplete="off" />
+				<button class="wb-btn" type="submit">{kx.searchSubmit}</button>
+			</form>
+		</header>
+
+		{
+			failed ? (
+				<div class="wb-status" data-tone="error">{kx.searchError}</div>
+			) : !q ? (
+				<p class="wb-muted">{kx.searchPrompt}</p>
+			) : items.length ? (
+				<ul class="kx-list">
+					{items.map((item) => (
+						<li>
+							<a class="kx-result" href={resultHref(item.collection, item.slug, SEARCH_ROUTES)}>
+								<span class="kx-kind">{resultKind(item.collection)}</span>
+								<strong>{item.title || item.slug}</strong>
+								{item.snippetHtml ? <span class="wb-muted" set:html={item.snippetHtml} /> : item.excerpt ? <span class="wb-muted">{item.excerpt}</span> : null}
+							</a>
+						</li>
+					))}
+				</ul>
+			) : (
+				<div class="wb-empty">
+					<p>
+						<strong>{kx.searchNone}</strong>
+					</p>
+					<p class="wb-muted">{kx.searchNoneHint}</p>
+					<p>
+						<a class="wb-btn" href={HELP_PATH}>{kx.backHome}</a>
+					</p>
+				</div>
+			)
+		}
+
+		{q && !items.length && !failed ? <StillNeedHelp href={config.contactUrl} /> : null}
+	</div>
+</Layout>

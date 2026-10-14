@@ -1,0 +1,205 @@
+{
+  "version": "1",
+  "meta": {
+    "name": "Fieldnote help center and roadmap"
+  },
+  "collections": [
+    {
+      "slug": "docs",
+      "label": "Help articles",
+      "labelSingular": "Help article",
+      "description": "KnowX help center articles",
+      "icon": "book",
+      "urlPattern": "/docs/{slug}",
+      "supports": [
+        "drafts",
+        "revisions",
+        "preview",
+        "search",
+        "seo"
+      ],
+      "fields": [
+        {
+          "slug": "title",
+          "label": "Title",
+          "type": "string",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "slug": "excerpt",
+          "label": "Excerpt",
+          "type": "text",
+          "searchable": true
+        },
+        {
+          "slug": "content",
+          "label": "Content",
+          "type": "portableText",
+          "searchable": true
+        },
+        {
+          "slug": "applies_to_version",
+          "label": "Applies to version",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "slug": "faq",
+      "label": "FAQs",
+      "labelSingular": "FAQ",
+      "description": "KnowX frequently asked questions",
+      "icon": "help",
+      "urlPattern": "/docs/faq/{slug}",
+      "supports": [
+        "drafts",
+        "revisions",
+        "preview",
+        "search",
+        "seo"
+      ],
+      "fields": [
+        {
+          "slug": "title",
+          "label": "Question",
+          "type": "string",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "slug": "answer",
+          "label": "Answer",
+          "type": "portableText",
+          "searchable": true
+        }
+      ]
+    },
+    {
+      "slug": "roadmap",
+      "label": "Roadmap",
+      "labelSingular": "Roadmap item",
+      "description": "Public roadmap items people can vote on",
+      "icon": "map",
+      "urlPattern": "/roadmap/{slug}",
+      "supports": [
+        "drafts",
+        "revisions",
+        "preview",
+        "seo"
+      ],
+      "commentsEnabled": true,
+      "admin": {
+        "listColumns": [
+          "stage"
+        ]
+      },
+      "fields": [
+        {
+          "slug": "title",
+          "label": "Title",
+          "type": "string",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "slug": "description",
+          "label": "Description",
+          "type": "text",
+          "searchable": true
+        },
+        {
+          "slug": "stage",
+          "label": "Stage",
+          "type": "string",
+          "indexed": true,
+          "defaultValue": "Under review"
+        }
+      ]
+    },
+    {
+      "slug": "changelog",
+      "label": "Changelog",
+      "labelSingular": "Release",
+      "description": "What shipped",
+      "icon": "list",
+      "urlPattern": "/changelog/{slug}",
+      "supports": [
+        "drafts",
+        "revisions",
+        "seo"
+      ],
+      "fields": [
+        {
+          "slug": "title",
+          "label": "Title",
+          "type": "string",
+          "required": true,
+          "searchable": true
+        },
+        {
+          "slug": "summary",
+          "label": "Summary",
+          "type": "text",
+          "searchable": true
+        },
+        {
+          "slug": "released",
+          "label": "Released",
+          "type": "datetime"
+        }
+      ]
+    }
+  ],
+  "taxonomies": [
+    {
+      "name": "doc_category",
+      "label": "Help categories",
+      "labelSingular": "Help category",
+      "hierarchical": true,
+      "collections": [
+        "docs"
+      ],
+      "terms": [
+        {
+          "slug": "getting-started",
+          "label": "Getting started",
+          "description": "Set up Fieldnote and invite your team."
+        },
+        {
+          "slug": "notes-and-sharing",
+          "label": "Notes and sharing",
+          "description": "Write, organise and share notes."
+        },
+        {
+          "slug": "account-and-billing",
+          "label": "Account and billing",
+          "description": "Plans, invoices and your workspace."
+        }
+      ]
+    },
+    {
+      "name": "roadmap_category",
+      "label": "Roadmap categories",
+      "labelSingular": "Roadmap category",
+      "hierarchical": true,
+      "collections": [
+        "roadmap"
+      ],
+      "terms": [
+        {
+          "slug": "editor",
+          "label": "Editor"
+        },
+        {
+          "slug": "mobile",
+          "label": "Mobile"
+        },
+        {
+          "slug": "integrations",
+          "label": "Integrations"
+        }
+      ]
+    }
+  ]
+}

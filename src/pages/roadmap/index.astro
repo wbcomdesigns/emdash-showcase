@@ -1,0 +1,98 @@
+---
+import { getCommentCount, getEmDashCollection, getTaxonomyTerms, getTermsForEntries } from "emdash";
+import Layout from "../../layouts/RoadmapLayout.astro";
+import { ideasOpen } from "../../lib/roadmap-health";
+import { strings } from "../../lib/roadmap-strings";
+import "../../styles/wbcom-base.css";
+import "../../styles/roadmap.css";
+
+const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes";
+const category = Astro.url.searchParams.get("category") || "";
+const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
+const allowIdeas = await ideasOpen(Astro.url.origin);
+
+// What each card says beyond its title: a short summary, its category and how many comments it has.
+// One collection read and one terms read for the whole board; comment counts run side by side.
+// 100 matches the most items the board shows.
+const SUMMARY_MAX = 120;
+const { entries: published, cacheHint } = await getEmDashCollection("roadmap", { limit: 100 }).catch(() => ({
+	entries: [],
+	cacheHint: undefined,
+}));
+if (Astro.cache?.enabled && cacheHint) Astro.cache.set(cacheHint);
+const ids = published.map((entry) => String(entry.data.id));
+const [termsById, commentCounts] = await Promise.all([
+	ids.length ? getTermsForEntries("roadmap", ids, "roadmap_category").catch(() => new Map()) : new Map(),
+	// ponytail: one count per item; switch to a bulk count if EmDash adds one.
+	Promise.all(ids.map((id) => getCommentCount("roadmap", id).catch(() => 0))),
+]);
+const details: Record<string, { summary: string; category: string; comments: number }> = {};
+published.forEach((entry, index) => {
+	const id = ids[index];
+	const text = String(entry.data.description || "").replace(/\s+/g, " ").trim();
+	details[id] = {
+		summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1).trimEnd()}…` : text,
+		category: termsById.get(id)?.[0]?.label || "",
+		comments: commentCounts[index] ?? 0,
+	};
+});
+
+const href = (next: { category?: string; sort?: string }) => {
+	const params = new URLSearchParams();
+	const nextCategory = "category" in next ? next.category || "" : category;
+	const nextSort = "sort" in next ? next.sort || "votes" : sort;
+	if (nextCategory) params.set("category", nextCategory);
+	if (nextSort !== "votes") params.set("sort", nextSort);
+	const query = params.toString();
+	return query ? `/roadmap/?${query}` : "/roadmap/";
+};
+---
+
+<Layout title={strings.boardTitle} description={strings.boardIntro}>
+	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort} data-details={JSON.stringify(details)} aria-busy="true">
+		<header>
+			<h1>{strings.boardTitle}</h1>
+			<p class="wb-muted">{strings.boardIntro}</p>
+			<p class="roadmap-links">
+				{allowIdeas ? <a class="wb-btn" href="/roadmap/suggest/">{strings.suggestLink}</a> : null}
+				<a class="wb-btn wb-btn--quiet" href="/changelog/">{strings.changelogLink}</a>
+			</p>
+		</header>
+
+		<div class="roadmap-toolbar">
+			<div class="roadmap-filter-group">
+				<p class="wb-label" id="roadmap-filter-category">{strings.filterCategory}</p>
+				<nav class="roadmap-filters" aria-labelledby="roadmap-filter-category">
+					<a href={href({ category: "" })} aria-current={category ? undefined : "page"}>{strings.allCategories}</a>
+					{
+						terms.map((term) => (
+							<a href={href({ category: term.slug })} aria-current={category === term.slug ? "page" : undefined}>
+								{term.label}
+							</a>
+						))
+					}
+				</nav>
+			</div>
+			<div class="roadmap-filter-group">
+				<p class="wb-label" id="roadmap-filter-sort">{strings.filterSort}</p>
+				<nav class="roadmap-filters" aria-labelledby="roadmap-filter-sort">
+					<a href={href({ sort: "votes" })} aria-current={sort === "votes" ? "page" : undefined}>{strings.sortVotes}</a>
+					<a href={href({ sort: "newest" })} aria-current={sort === "newest" ? "page" : undefined}>{strings.sortNewest}</a>
+				</nav>
+			</div>
+		</div>
+
+		<p id="roadmap-status" class="wb-status" hidden></p>
+		<p id="roadmap-loading" aria-live="polite">{strings.loading}</p>
+		<noscript>
+			<p class="wb-empty">{strings.needsJs}</p>
+		</noscript>
+		<div id="roadmap-tabs" class="roadmap-tabs" role="tablist" hidden></div>
+		<div id="roadmap-board" class="roadmap-board" hidden></div>
+	</div>
+</Layout>
+
+<script>
+	import { loadBoard } from "../../lib/roadmap-board";
+	void loadBoard();
+</script>

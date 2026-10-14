@@ -1,0 +1,19 @@
+---
+/**
+ * Shows the poll the owner attached to this page, its content type, or the site.
+ * Renders nothing when no open poll matches.
+ */
+import Poll from "./Poll.astro";
+
+interface Props {
+	collection: string;
+	id: string;
+	/** Place one slot with "above" before the content and one with "below" after it to honour
+	 *  each poll's Position setting. One slot with no position shows every poll where it sits. */
+	position?: "above" | "below";
+}
+
+const { collection, id, position } = Astro.props;
+---
+
+<Poll collection={collection} entry={id} position={position ?? ""} />

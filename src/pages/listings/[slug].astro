@@ -1,0 +1,771 @@
+---
+import {
+	decodeSlug,
+	getEmDashEntry,
+	getSeoMeta,
+	getSiteSettings,
+	getTermsForEntries,
+} from "emdash";
+import { Image } from "emdash/ui";
+import Layout from "../../layouts/ListoraLayout.astro";
+import {
+	asNumber,
+	imageUrl,
+	jsonForScript,
+	placeholderHtml,
+	hoursForWeek,
+	isOpenNow,
+	siteZone,
+	mapsDirectionsUrl,
+	parseHours,
+	schemaType,
+	typeFacts,
+	typeName,
+	websiteHref,
+	weekdayIndex,
+} from "../../lib/listora";
+import "../../styles/listora-ui.css";
+
+const slug = decodeSlug(Astro.params.slug);
+if (!slug) return Astro.rewrite("/404");
+
+const { entry: listing, cacheHint } = await getEmDashEntry("listings", slug);
+if (!listing) return Astro.rewrite("/404");
+if (Astro.cache?.enabled) Astro.cache.set(cacheHint);
+
+const site = await getSiteSettings();
+const siteTitle = site?.title ?? "";
+const seo = getSeoMeta(listing, {
+	siteTitle,
+	siteUrl: Astro.url.origin,
+	path: Astro.url.pathname.replace(/\/$/, ""),
+});
+const data = listing.data;
+const categories =
+	(await getTermsForEntries("listings", [data.id], "listing_category")).get(data.id) ?? [];
+// A street line that already names the city is not followed by the city and state again.
+const namesCity = Boolean(data.city) && String(data.address || "").toLowerCase().includes(String(data.city).toLowerCase());
+const address = [data.address, ...(namesCity ? [] : [data.city, data.state]), data.postal_code, data.country]
+	.filter(Boolean)
+	.join(", ");
+const place = [data.city, data.state, data.country].filter(Boolean).join(", ");
+const website = websiteHref(data.website);
+const hours = parseHours(data.hours);
+// One zone for the whole directory: the site's own, from EmDash's settings.
+const zone = siteZone(site?.timezone);
+const open = hours.length ? isOpenNow(hours, zone) : null;
+const weekHours = hoursForWeek(hours);
+const today = weekdayIndex(zone);
+const lat = asNumber(data.lat);
+const lng = asNumber(data.lng);
+const hasMap = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0;
+// Photos beyond the cover. Rows an admin added in the editor and photos an owner sent both live here.
+const gallery = (Array.isArray(data.gallery) ? data.gallery : []).filter((row: { image?: unknown }) => row?.image) as Array<{ image: never }>;
+const expired = String(data.listing_status || "") === "expired";
+const claimed = Boolean(data.is_claimed);
+const services = (() => {
+	try {
+		const parsed = JSON.parse(String(data.services || "[]"));
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+})();
+// What this type of listing adds: an event's dates, a home's bedrooms and price, a job's salary.
+const facts = typeFacts(data, zone);
+const isEvent = data.listing_type === "event";
+const hasContact = Boolean(data.phone || website || data.email);
+// The share image is the listing's own photo, or none. Never a stock picture.
+const photoPath = imageUrl(data.featured_image, Astro.locals.emdash?.getPublicMediaUrl);
+// Share cards and search engines need a full address.
+const photo = photoPath ? new URL(photoPath, Astro.url.origin).href : undefined;
+const directions = hasMap ? mapsDirectionsUrl(lat, lng) : "";
+// Empty parts are left out, never written as null.
+const postal = {
+	"@type": "PostalAddress",
+	streetAddress: data.address || undefined,
+	addressLocality: data.city || undefined,
+	addressRegion: data.state || undefined,
+	postalCode: data.postal_code || undefined,
+	addressCountry: data.country || undefined,
+};
+const schema = {
+	"@context": "https://schema.org",
+	// The plugin adds the rating under the same @id, so search engines read one listing.
+	"@id": `${seo.canonical || Astro.url.href}#listing`,
+	"@type": schemaType(data.listing_type),
+	name: data.title,
+	description: data.excerpt || data.description || undefined,
+	// An event has no phone of its own in search engine data, and its place goes under "location".
+	telephone: isEvent ? undefined : data.phone || undefined,
+	url: website || undefined,
+	...(isEvent
+		? {
+				startDate: data.event_start || undefined,
+				endDate: data.event_end || undefined,
+				location: { "@type": "Place", name: data.address || place || data.title, address: postal },
+			}
+		: { address: postal, geo: hasMap ? { "@type": "GeoCoordinates", latitude: lat, longitude: lng } : undefined }),
+	image: photo,
+};
+---
+
+<Layout
+	title={seo.title}
+	pageTitle={seo.ogTitle}
+	description={seo.description || data.excerpt}
+	canonical={seo.canonical}
+	robots={seo.robots}
+	image={photo}
+	content={{ collection: "listings", id: data.id, slug }}
+>
+	<script type="application/ld+json" set:html={jsonForScript(schema)} />
+	<div class="listora-block" data-zone={zone}>
+		<article class="listora-detail">
+			<nav class="listora-detail__breadcrumb" aria-label="Breadcrumb">
+				<ol>
+					<li><a href="/listings/">Listings</a></li>
+					<li>
+						<a href={`/listings/?type=${data.listing_type}`}>{typeName(data.listing_type)}</a>
+					</li>
+					<li aria-current="page">{data.title}</li>
+				</ol>
+			</nav>
+
+			{
+				expired ? (
+					<p class="listora-detail__notice" role="status">
+						This listing has expired. Hours and contact may be out of date.
+					</p>
+				) : null
+			}
+
+			<div class="listora-detail__cover">
+				{
+					data.featured_image ? (
+						<Image image={data.featured_image} alt={String(data.title)} />
+					) : (
+						<Fragment set:html={placeholderHtml(String(data.listing_type || ""))} />
+					)
+				}
+			</div>
+
+			{
+				gallery.length > 0 ? (
+					<section class="listora-gallery" aria-label="Photos">
+						<ul class="listora-gallery__thumbs">
+							{gallery.map((row, index) => (
+								<li>
+									<button type="button" class="listora-gallery__thumb" data-photo={index} aria-label={`Open photo ${index + 1} of ${gallery.length}`}>
+										<Image image={row.image} alt="" />
+									</button>
+								</li>
+							))}
+						</ul>
+						<dialog class="listora-lightbox" id="listora-lightbox" aria-label={`Photos of ${String(data.title)}`}>
+							<div class="listora-lightbox__bar">
+								<span id="listora-lightbox-count" aria-live="polite"></span>
+								<button type="button" class="listora-btn listora-btn--secondary" data-lightbox-close>Close</button>
+							</div>
+							<div class="listora-lightbox__stage">
+								{gallery.map((row, index) => (
+									<figure data-slide={index} hidden>
+										<Image image={row.image} alt={`${String(data.title)}, photo ${index + 1} of ${gallery.length}`} />
+									</figure>
+								))}
+							</div>
+							{gallery.length > 1 ? (
+								<div class="listora-lightbox__nav">
+									<button type="button" class="listora-btn listora-btn--secondary" data-lightbox-step="-1">Previous</button>
+									<button type="button" class="listora-btn listora-btn--secondary" data-lightbox-step="1">Next</button>
+								</div>
+							) : null}
+						</dialog>
+					</section>
+				) : null
+			}
+
+			<div class="listora-detail__content">
+				<div class="listora-detail__main">
+					<header class="listora-detail__header">
+						<div class="listora-detail__header-top">
+							<span class="listora-badge listora-badge--type">{typeName(data.listing_type)}</span>
+							{
+								data.is_featured ? (
+									<span class="listora-badge listora-badge--featured">Featured</span>
+								) : null
+							}
+							{
+								expired ? (
+									<span class="listora-badge listora-badge--expired">Expired</span>
+								) : open === true ? (
+									<span class="listora-badge listora-badge--open" role="status">Open</span>
+								) : open === false ? (
+									<span class="listora-badge listora-badge--closed" role="status">Closed</span>
+								) : null
+							}
+							<span class="listora-stars" id="listora-rating" hidden></span>
+						</div>
+						<h1 class="listora-detail__title">{data.title}</h1>
+						{
+							place ? (
+								<p class="listora-detail__address">
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+										<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+										<circle cx="12" cy="10" r="3"></circle>
+									</svg>
+									{place}
+								</p>
+							) : null
+						}
+						{data.excerpt ? <p class="listora-detail__lead">{data.excerpt}</p> : null}
+						{
+							facts.length ? (
+								<dl class="listora-facts listora-facts--row">
+									{facts.map((fact) => (
+										<div>
+											<dt>{fact.label}</dt>
+											<dd>{fact.value}</dd>
+										</div>
+									))}
+								</dl>
+							) : null
+						}
+
+						<div class="listora-detail__actions">
+							<button class="listora-btn listora-btn--secondary" type="button" id="fav-btn" aria-pressed="false" data-id={data.id}>
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+									<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+								</svg>
+								<span data-label>Save</span>
+							</button>
+							<button class="listora-btn listora-btn--secondary" type="button" id="share-btn" data-title={data.title}>
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+									<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+									<polyline points="16 6 12 2 8 6"></polyline>
+									<line x1="12" x2="12" y1="2" y2="15"></line>
+								</svg>
+								Share
+							</button>
+							{
+								directions ? (
+									<a class="listora-btn listora-btn--secondary" href={directions} rel="noopener noreferrer" target="_blank">
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+											<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+										</svg>
+										Directions
+									</a>
+								) : null
+							}
+							{
+								!claimed ? (
+									<a class="listora-btn listora-btn--secondary" href="#claim-form">Claim</a>
+								) : null
+							}
+						</div>
+					</header>
+
+					<div class="listora-tabs" role="tablist" aria-label="Listing sections">
+						<button class="listora-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="tab-details" id="tab-btn-details" data-tab="details">
+							Details
+						</button>
+						<button class="listora-tab" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-reviews" id="tab-btn-reviews" data-tab="reviews">
+							Reviews
+						</button>
+						<button class="listora-tab" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-contact" id="tab-btn-contact" data-tab="contact">
+							Contact
+						</button>
+					</div>
+
+					<div id="tab-details" role="tabpanel" aria-labelledby="tab-btn-details">
+						{
+							data.description ? (
+								<p class="listora-detail__copy">{data.description}</p>
+							) : (
+								<div class="listora-empty">
+									<h2>No description yet</h2>
+									<p>The owner has not added a longer write-up.</p>
+								</div>
+							)
+						}
+						{
+							services.length ? (
+								<div class="listora-panel">
+									<h2>Services</h2>
+									<ul class="listora-service-list">
+										{services.map((service: { name?: string; price?: number; duration?: number }) => (
+											<li>
+												<span>{service.name}</span>
+												<span>
+													{service.price ? `$${service.price}` : ""}
+													{service.duration ? ` ${service.duration} min` : ""}
+												</span>
+											</li>
+										))}
+									</ul>
+								</div>
+							) : null
+						}
+						{
+							categories.length ? (
+								<p class="listora-chips">
+									{categories.map((term) => (
+										<a class="listora-chip" href={`/listings/?category=${encodeURIComponent(term.slug)}`}>{term.label}</a>
+									))}
+								</p>
+							) : null
+						}
+					</div>
+
+					<div id="tab-reviews" hidden role="tabpanel" aria-labelledby="tab-btn-reviews">
+						<div id="listora-reviews"></div>
+					<form id="listora-review-form" class="listora-form listora-form-section">
+						<h2>Write a review</h2>
+						<p class="listora-helper">Stars and a short note. The owner can reply later.</p>
+						<div class="listora-field">
+							<label class="listora-label" for="rev-stars">Stars</label>
+							<select id="rev-stars" class="listora-input" name="stars" aria-describedby="rev-stars-help">
+								<option value="5">5</option>
+								<option value="4">4</option>
+								<option value="3">3</option>
+								<option value="2">2</option>
+								<option value="1">1</option>
+							</select>
+							<p class="listora-helper" id="rev-stars-help">5 is excellent.</p>
+						</div>
+						<div class="listora-field">
+							<label class="listora-label" for="rev-title">Title</label>
+							<input id="rev-title" class="listora-input" name="title" aria-describedby="rev-title-help" />
+							<p class="listora-helper" id="rev-title-help">A short headline for the review.</p>
+						</div>
+						<div class="listora-field">
+							<label class="listora-label" for="rev-body">
+								Review <span class="listora-req">(required)</span>
+							</label>
+							<textarea id="rev-body" class="listora-input" name="body" required aria-required="true" aria-describedby="rev-body-help rev-body-error"></textarea>
+							<p class="listora-helper" id="rev-body-help">Say what a visitor should know.</p>
+							<p class="listora-field-error" id="rev-body-error" hidden>Write a review before you submit.</p>
+						</div>
+						<div class="listora-actions">
+							<button class="listora-btn" type="submit">Submit review</button>
+						</div>
+					</form>
+					</div>
+
+					<div id="tab-contact" hidden role="tabpanel" aria-labelledby="tab-btn-contact">
+						<form id="listora-contact-form" class="listora-form listora-form-section">
+							<h2>Contact this listing</h2>
+							<p class="listora-helper">Do not send payment details.</p>
+							<div class="listora-honeypot">
+								<label aria-hidden="true">Company website<input name="company_website" tabindex="-1" autocomplete="off" /></label>
+							</div>
+							<div class="listora-form-grid">
+								<div class="listora-field">
+									<label class="listora-label" for="c-name">Name</label>
+									<input id="c-name" class="listora-input" name="name" autocomplete="name" />
+								</div>
+								<div class="listora-field">
+									<label class="listora-label" for="c-email">Email</label>
+									<input id="c-email" class="listora-input" name="email" type="email" autocomplete="email" />
+								</div>
+							</div>
+							<div class="listora-field">
+								<label class="listora-label" for="c-message">
+									Message <span class="listora-req">(required)</span>
+								</label>
+								<textarea id="c-message" class="listora-input" name="message" required aria-required="true" aria-describedby="c-message-help c-message-error"></textarea>
+								<p class="listora-helper" id="c-message-help">The owner sees this message.</p>
+								<p class="listora-field-error" id="c-message-error" hidden>Write a message before you send.</p>
+							</div>
+							<div class="listora-actions">
+								<button class="listora-btn" type="submit">Send message</button>
+							</div>
+							<p id="listora-contact-status" class="listora-status" hidden></p>
+						</form>
+					</div>
+				</div>
+
+				<aside class="listora-detail__sidebar">
+					{
+						data.owner_name ? (
+							<div class="listora-detail__owner-card">
+								<h2>Listed by</h2>
+								<p class="listora-detail__owner-name">{data.owner_name}</p>
+							</div>
+						) : null
+					}
+
+					{
+						hasContact ? (
+							<div class="listora-detail__contact-card">
+								<h2>Contact</h2>
+								{data.phone ? (
+									<a class="listora-detail__contact-item" href={`tel:${data.phone}`}>
+										<span class="listora-detail__contact-icon listora-detail__contact-icon--phone" aria-hidden="true">
+											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+												<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+											</svg>
+										</span>
+										{data.phone}
+									</a>
+								) : null}
+								{website ? (
+									<a class="listora-detail__contact-item" href={website} rel="noopener noreferrer">
+										<span class="listora-detail__contact-icon listora-detail__contact-icon--web" aria-hidden="true">
+											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+												<circle cx="12" cy="12" r="10"></circle>
+												<line x1="2" x2="22" y1="12" y2="12"></line>
+												<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+											</svg>
+										</span>
+										{website.replace(/^https?:\/\//, "")}
+									</a>
+								) : null}
+								{data.email ? (
+									<a class="listora-detail__contact-item" href={`mailto:${data.email}`}>
+										<span class="listora-detail__contact-icon listora-detail__contact-icon--email" aria-hidden="true">
+											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+												<rect width="20" height="16" x="2" y="4" rx="2"></rect>
+												<path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+											</svg>
+										</span>
+										{data.email}
+									</a>
+								) : null}
+							</div>
+						) : null
+					}
+
+					{
+						hours.length ? (
+							<div class="listora-detail__hours-card">
+								<h2>Hours</h2>
+								{open === true ? (
+									<p class="listora-detail__hours-status is-open">Open now</p>
+								) : open === false ? (
+									<p class="listora-detail__hours-status is-closed">Closed now</p>
+								) : null}
+								<table class="listora-hours-table">
+									<tbody>
+										{weekHours.map((row) => (
+											<tr class:list={{ "is-today": row.day === today }}>
+												<td class="listora-hours-table__day">
+													{row.label}
+													{row.day === today ? <span class="listora-sr-only"> today</span> : null}
+												</td>
+												<td class:list={{ "listora-hours-table__time": true, "listora-hours-table__time--closed": row.closed }}>
+													{row.closed ? "Closed" : `${row.open} - ${row.close}`}
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : null
+					}
+
+					{
+						hasMap || data.address ? (
+							<div class="listora-detail__map-card">
+								<h2>Location</h2>
+								{/* A listing with no map position still shows where it is. */}
+								{hasMap ? <div id="detail-map" class="listora-detail__map-embed" data-lat={lat} data-lng={lng} data-title={data.title}></div> : null}
+								{address ? <p class="listora-detail__map-address">{address}</p> : null}
+								{directions ? (
+									<a class="listora-btn listora-btn--secondary listora-detail__map-directions" href={directions} rel="noopener noreferrer" target="_blank">
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+											<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+										</svg>
+										Get directions
+									</a>
+								) : null}
+							</div>
+						) : null
+					}
+
+					{
+						claimed ? (
+							<div class="listora-detail__claimed-badge">
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+									<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+									<polyline points="22 4 12 14.01 9 11.01"></polyline>
+								</svg>
+								Claimed listing
+							</div>
+						) : (
+							<div class="listora-detail__claim-card">
+								<form id="claim-form" class="listora-form">
+									<h2>Is this your business?</h2>
+									<p class="listora-helper">A claim goes to review. The decision shows in your account, under Claims.</p>
+									<div class="listora-field">
+										<label class="listora-label" for="claim-name">
+											Name <span class="listora-req">(required)</span>
+										</label>
+										<input id="claim-name" class="listora-input" name="name" required aria-required="true" autocomplete="name" aria-describedby="claim-name-error" />
+										<p class="listora-field-error" id="claim-name-error" hidden>Enter your name.</p>
+									</div>
+									<div class="listora-field">
+										<label class="listora-label" for="claim-email">
+											Email <span class="listora-req">(required)</span>
+										</label>
+										<input id="claim-email" class="listora-input" name="email" type="email" required aria-required="true" autocomplete="email" aria-describedby="claim-email-error" />
+										<p class="listora-field-error" id="claim-email-error" hidden>Enter a valid email.</p>
+									</div>
+									<div class="listora-field">
+										<label class="listora-label" for="claim-message">
+											Proof <span class="listora-req">(required)</span>
+										</label>
+										<textarea id="claim-message" class="listora-input" name="message" required aria-required="true" aria-describedby="claim-help claim-message-error"></textarea>
+										<p class="listora-helper" id="claim-help">Say how you can show you own this listing.</p>
+										<p class="listora-field-error" id="claim-message-error" hidden>Add proof before you claim.</p>
+									</div>
+									<div class="listora-actions">
+										<button class="listora-btn" type="submit">Claim listing</button>
+									</div>
+								</form>
+							</div>
+						)
+					}
+				</aside>
+			</div>
+		</article>
+	</div>
+</Layout>
+
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+<script>
+	import { api, day, esc, notify, savedIds } from "../../lib/listora";
+
+	const favBtn = document.getElementById("fav-btn");
+	const listingId = favBtn?.getAttribute("data-id") || "";
+
+	document.querySelectorAll<HTMLButtonElement>(".listora-tab").forEach((tab) => {
+		tab.addEventListener("click", () => {
+			document.querySelectorAll(".listora-tab").forEach((node) => {
+				node.classList.remove("is-active");
+				node.setAttribute("aria-selected", "false");
+				node.setAttribute("tabindex", "-1");
+			});
+			tab.classList.add("is-active");
+			tab.setAttribute("aria-selected", "true");
+			tab.setAttribute("tabindex", "0");
+			const id = tab.dataset.tab;
+			document.getElementById("tab-details")!.hidden = id !== "details";
+			document.getElementById("tab-reviews")!.hidden = id !== "reviews";
+			document.getElementById("tab-contact")!.hidden = id !== "contact";
+		});
+	});
+
+	// Left and right arrows move between tabs, as a tab list should.
+	document.querySelector(".listora-tabs, [role=tablist]")?.addEventListener("keydown", (event) => {
+		const key = (event as KeyboardEvent).key;
+		if (key !== "ArrowRight" && key !== "ArrowLeft" && key !== "Home" && key !== "End") return;
+		const tabs = [...document.querySelectorAll<HTMLButtonElement>(".listora-tab")];
+		const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
+		if (at === -1) return;
+		event.preventDefault();
+		const next = key === "Home" ? 0 : key === "End" ? tabs.length - 1 : (at + (key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+		tabs[next].focus();
+		tabs[next].click();
+	});
+
+	function setFieldError(id: string, errorId: string, show: boolean) {
+		const input = document.getElementById(id) as HTMLInputElement | null;
+		const error = document.getElementById(errorId);
+		input?.classList.toggle("is-invalid", show);
+		input?.setAttribute("aria-invalid", show ? "true" : "false");
+		if (error) error.hidden = !show;
+		if (show) input?.focus();
+	}
+
+	// Photos: a thumbnail opens the large view. Arrow keys and a sideways swipe move between
+	// photos, Esc closes (the dialog element does that itself), and focus goes back to the thumbnail.
+	const lightbox = document.getElementById("listora-lightbox") as HTMLDialogElement | null;
+	if (lightbox) {
+		const slides = [...lightbox.querySelectorAll<HTMLElement>("[data-slide]")];
+		const count = document.getElementById("listora-lightbox-count");
+		let current = 0;
+		let opener: HTMLElement | null = null;
+		const show = (index: number) => {
+			current = (index + slides.length) % slides.length;
+			slides.forEach((slide, at) => (slide.hidden = at !== current));
+			if (count) count.textContent = `Photo ${current + 1} of ${slides.length}`;
+		};
+		document.querySelectorAll<HTMLButtonElement>("[data-photo]").forEach((button) => {
+			button.addEventListener("click", () => {
+				opener = button;
+				show(Number(button.dataset.photo) || 0);
+				lightbox.showModal();
+			});
+		});
+		lightbox.addEventListener("click", (event) => {
+			const target = event.target as HTMLElement;
+			const step = target.closest<HTMLElement>("[data-lightbox-step]");
+			if (step) show(current + Number(step.dataset.lightboxStep));
+			// A click on the dark area around the photo closes it.
+			if (target.closest("[data-lightbox-close]") || target === lightbox) lightbox.close();
+		});
+		lightbox.addEventListener("keydown", (event) => {
+			if (event.key === "ArrowRight") show(current + 1);
+			if (event.key === "ArrowLeft") show(current - 1);
+		});
+		let startX = 0;
+		lightbox.addEventListener("touchstart", (event) => (startX = event.touches[0].clientX), { passive: true });
+		lightbox.addEventListener("touchend", (event) => {
+			const moved = event.changedTouches[0].clientX - startX;
+			if (Math.abs(moved) > 50) show(current + (moved < 0 ? 1 : -1));
+		});
+		lightbox.addEventListener("close", () => opener?.focus());
+	}
+
+	// A date a person reads, in the visitor's own language: "13 Oct 2026".
+	async function loadReviews() {
+		const box = document.getElementById("listora-reviews");
+		if (!box) return;
+		const data = await api(`reviews?listingId=${encodeURIComponent(listingId)}`);
+		if (!data.ok) {
+			box.innerHTML = `<div class="listora-empty" role="alert"><h2>Reviews could not be loaded</h2><p>${esc(data.error?.message || "Try again in a moment.")}</p></div>`;
+			return;
+		}
+		const items = (data.items ?? []) as Array<Record<string, unknown>>;
+		const summary = document.getElementById("listora-rating");
+		const count = Number(data.count) || 0;
+		if (summary && count) {
+			const average = Number(data.average) || 0;
+			summary.hidden = false;
+			summary.innerHTML = `<span aria-hidden="true">${"★".repeat(Math.max(1, Math.round(average)))}</span> <span class="listora-stars__value">${esc(average.toFixed(1))} (${count} ${count === 1 ? "review" : "reviews"})</span>`;
+		}
+		box.innerHTML =
+			items.length === 0
+				? `<div class="listora-empty"><h2>No reviews yet</h2><p>Be the first to review this listing.</p></div>`
+				: items
+						.map(
+							(item) =>
+								`<article class="listora-review"><strong>${esc(item.author || "Member")}</strong> <span class="listora-stars" aria-label="${Number(item.stars) || 0} out of 5">${"★".repeat(Number(item.stars) || 0)}</span><h3>${esc(item.title)}</h3><p>${esc(item.body)}</p>${item.owner_reply ? `<div class="listora-reply"><p class="listora-reply__label">Reply from the owner${item.owner_reply_at ? ` · ${esc(day(item.owner_reply_at))}` : ""}</p><p>${esc(item.owner_reply)}</p></div>` : ""}</article>`,
+						)
+						.join("");
+	}
+
+	document.getElementById("listora-review-form")?.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		const data = new FormData(form);
+		const body = String(data.get("body") ?? "").trim();
+		if (!body) {
+			setFieldError("rev-body", "rev-body-error", true);
+			return;
+		}
+		setFieldError("rev-body", "rev-body-error", false);
+		form.setAttribute("aria-busy", "true");
+		const result = await api("review", {
+			listingId,
+			stars: Number(data.get("stars")),
+			title: String(data.get("title") ?? ""),
+			body,
+		});
+		form.removeAttribute("aria-busy");
+		if (result.ok) form.reset();
+		notify(form, result, "Thanks. Your review will appear once it is approved.");
+	});
+
+	document.getElementById("listora-contact-form")?.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		const data = new FormData(form);
+		const message = String(data.get("message") ?? "").trim();
+		if (!message) {
+			setFieldError("c-message", "c-message-error", true);
+			return;
+		}
+		setFieldError("c-message", "c-message-error", false);
+		form.setAttribute("aria-busy", "true");
+		const result = await api("contact", {
+			listingId,
+			name: String(data.get("name") ?? ""),
+			email: String(data.get("email") ?? ""),
+			message,
+			company_website: String(data.get("company_website") ?? ""),
+		});
+		form.removeAttribute("aria-busy");
+		if (result.ok) form.reset();
+		const status = document.getElementById("listora-contact-status");
+		if (status) {
+			status.hidden = false;
+			status.dataset.tone = result.ok ? "success" : "error";
+			status.textContent = result.ok ? "Message sent." : result.error?.message || "Could not send.";
+		}
+	});
+
+	const showSaved = (saved: boolean) => {
+		if (!favBtn) return;
+		favBtn.classList.toggle("is-saved", saved);
+		favBtn.setAttribute("aria-pressed", String(saved));
+		(favBtn.querySelector("[data-label]") ?? favBtn).textContent = saved ? "Saved" : "Save";
+	};
+	// The page is the same for every visitor, so whether this member saved it is asked after it loads.
+	if (favBtn) savedIds().then((ids) => showSaved(ids.has(listingId)));
+
+	favBtn?.addEventListener("click", async () => {
+		const saved = favBtn.classList.contains("is-saved");
+		const result = await api("favorites", { listingId }, saved ? "DELETE" : "POST");
+		if (!result.ok) {
+			notify(favBtn.parentElement ?? favBtn, result, "");
+			return;
+		}
+		showSaved(!saved);
+	});
+
+	document.getElementById("share-btn")?.addEventListener("click", async () => {
+		const title = document.getElementById("share-btn")?.getAttribute("data-title") || document.title;
+		const url = location.href;
+		if (navigator.share) {
+			await navigator.share({ title, url }).catch(() => {});
+			return;
+		}
+		await navigator.clipboard.writeText(url);
+		const btn = document.getElementById("share-btn");
+		if (btn) btn.lastChild && (btn.lastChild.textContent = " Copied");
+	});
+
+	document.getElementById("claim-form")?.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		const data = new FormData(form);
+		const name = String(data.get("name") ?? "").trim();
+		const email = String(data.get("email") ?? "").trim();
+		const message = String(data.get("message") ?? "").trim();
+		setFieldError("claim-name", "claim-name-error", !name);
+		setFieldError("claim-email", "claim-email-error", !email || !email.includes("@"));
+		setFieldError("claim-message", "claim-message-error", !message);
+		if (!name || !email || !email.includes("@") || !message) return;
+		form.setAttribute("aria-busy", "true");
+		const result = await api("claims", { listingId, name, email, message });
+		form.removeAttribute("aria-busy");
+		if (!result.ok) {
+			notify(form, result, "");
+			return;
+		}
+		const done = document.createElement("p");
+		done.className = "listora-status";
+		done.dataset.tone = "success";
+		done.textContent = "Claim sent for review.";
+		form.replaceWith(done);
+	});
+
+	loadReviews();
+
+	const mapEl = document.getElementById("detail-map");
+	if (mapEl) {
+		const leaflet = document.createElement("script");
+		leaflet.src = "/vendor/leaflet/leaflet.js";
+		leaflet.onload = () => {
+			const L = (window as unknown as { L: { map: Function; tileLayer: Function; marker: Function } }).L;
+			const mapLat = Number(mapEl.dataset.lat);
+			const mapLng = Number(mapEl.dataset.lng);
+			const map = L.map(mapEl).setView([mapLat, mapLng], 14);
+			L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+			L.marker([mapLat, mapLng]).addTo(map).bindPopup(mapEl.dataset.title);
+		};
+		document.body.append(leaflet);
+	}
+</script>

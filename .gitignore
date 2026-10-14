@@ -1,0 +1,15 @@
+node_modules
+dist
+.astro
+.emdash/migrations.json
+uploads
+data.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Local database and its helper files never go into git; rebuild with scripts/build-model-site.sh
+data.db-wal
+data.db-shm

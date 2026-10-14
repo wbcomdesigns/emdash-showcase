@@ -1,0 +1,202 @@
+/* Same column as the site header on the EmDash themes (KnowX uses the same values). */
+.roadmap {
+	box-sizing: border-box;
+	max-width: var(--wide-width, 75rem);
+	margin-inline: auto;
+	padding-inline: var(--spacing-6, 1.5rem);
+	padding-block: 1.25rem 3rem;
+}
+
+.roadmap-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--wb-gap);
+}
+
+.roadmap-filter-group {
+	display: grid;
+	gap: 0.35rem;
+}
+
+.roadmap-filters,
+.roadmap-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.roadmap-tabs {
+	display: none;
+}
+
+/* Selected states use the button fill: in dark mode it is darker than the brand colour, so white text stays readable. */
+.roadmap-tabs [aria-selected="true"] {
+	background: var(--wb-btn-bg);
+	border-color: transparent;
+	color: var(--wb-on-brand);
+	font-weight: 600;
+}
+
+.roadmap-filters a {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--wb-tap);
+	padding-block: 0;
+	padding-inline: 0.85rem;
+	border: 1px solid var(--wb-border);
+	border-radius: 8px;
+	color: inherit;
+	text-decoration: none;
+}
+
+.roadmap-filters a[aria-current="page"] {
+	background: var(--wb-btn-bg);
+	border-color: transparent;
+	color: var(--wb-on-brand);
+	font-weight: 600;
+}
+
+.roadmap-board {
+	display: grid;
+	gap: var(--wb-gap);
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roadmap-col {
+	display: grid;
+	align-content: start;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.roadmap-card {
+	display: grid;
+	gap: 0.5rem;
+}
+
+.roadmap-card h3 {
+	font-size: 1rem;
+}
+
+.roadmap-card h3 a,
+.roadmap-month a,
+.wb-item h3 a {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--wb-tap);
+}
+
+.wb-vote {
+	justify-self: start;
+	gap: 0.4rem;
+}
+
+.wb-vote[aria-pressed="true"] {
+	background: var(--wb-btn-bg);
+	border-color: transparent;
+	color: var(--wb-on-brand);
+}
+
+.roadmap-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+}
+
+/* Plain links take the text colour; links styled as buttons keep the button's own colours
+   (white on the brand fill measured 3.1:1 when this caught "Suggest an idea"). */
+.roadmap-card a:not(.wb-btn),
+.roadmap-links a:not(.wb-btn),
+.roadmap-item a:not(.wb-btn),
+.roadmap-month a:not(.wb-btn) {
+	color: inherit;
+}
+
+.roadmap-item,
+.roadmap-month {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.roadmap-item__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0;
+	font-size: 0.9rem;
+}
+
+.roadmap-item__comments {
+	margin-top: 1.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid var(--wb-border);
+}
+
+.roadmap-item__body {
+	white-space: pre-wrap;
+}
+
+/* Board, item and changelog headers: title, intro and buttons with even space, whatever margins the theme gives h1 and p. */
+.roadmap > header {
+	display: grid;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+.roadmap > header > * {
+	margin: 0;
+}
+
+/* Card details: a short summary, then votes, category and comment count on one wrapping row. */
+.roadmap-card-summary {
+	margin: 0;
+	color: var(--wb-muted);
+	font-size: 0.9rem;
+}
+
+.roadmap-card-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	font-size: 0.85rem;
+	color: var(--wb-muted);
+}
+
+.roadmap-card-tag {
+	border: 1px solid var(--wb-border);
+	border-radius: 999px;
+	padding: 0.1rem 0.6rem;
+}
+
+.roadmap-col-count {
+	color: var(--wb-muted);
+	font-size: 0.85em;
+	font-weight: 400;
+}
+
+@media (max-width: 1024px) {
+	.roadmap-board {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 640px) {
+	.roadmap-tabs {
+		display: flex;
+	}
+
+	.roadmap-board {
+		grid-template-columns: 1fr;
+	}
+
+	.roadmap-col {
+		display: none;
+	}
+
+	.roadmap-col.is-active {
+		display: grid;
+	}
+}

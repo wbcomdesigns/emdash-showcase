@@ -1,0 +1,352 @@
+{
+	"version": "1",
+	"meta": {
+		"name": "Listora",
+		"description": "Listings collection and taxonomies"
+	},
+	"collections": [
+		{
+			"slug": "listings",
+			"label": "Listings",
+			"labelSingular": "Listing",
+			"description": "Listora directory listings",
+			"icon": "buildings",
+			"urlPattern": "/listings/{slug}",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"search",
+				"seo"
+			],
+			"admin": {
+				"listColumns": [
+					"listing_type",
+					"city"
+				]
+			},
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true,
+					"searchable": true
+				},
+				{
+					"slug": "featured_image",
+					"label": "Featured Image",
+					"type": "image"
+				},
+				{
+					"slug": "excerpt",
+					"label": "Excerpt",
+					"type": "text",
+					"searchable": true
+				},
+				{
+					"slug": "description",
+					"label": "Description",
+					"type": "text",
+					"searchable": true
+				},
+				{
+					"slug": "listing_type",
+					"label": "Listing type",
+					"type": "string",
+					"indexed": true,
+					"defaultValue": "business"
+				},
+				{
+					"slug": "phone",
+					"label": "Phone",
+					"type": "string"
+				},
+				{
+					"slug": "website",
+					"label": "Website",
+					"type": "url"
+				},
+				{
+					"slug": "email",
+					"label": "Email",
+					"type": "string"
+				},
+				{
+					"slug": "address",
+					"label": "Address",
+					"type": "string"
+				},
+				{
+					"slug": "city",
+					"label": "City",
+					"type": "string",
+					"indexed": true
+				},
+				{
+					"slug": "state",
+					"label": "State",
+					"type": "string"
+				},
+				{
+					"slug": "country",
+					"label": "Country",
+					"type": "string",
+					"indexed": true
+				},
+				{
+					"slug": "postal_code",
+					"label": "Postal code",
+					"type": "string"
+				},
+				{
+					"slug": "lat",
+					"label": "Latitude",
+					"type": "number",
+					"indexed": true
+				},
+				{
+					"slug": "lng",
+					"label": "Longitude",
+					"type": "number"
+				},
+				{
+					"slug": "is_claimed",
+					"label": "Claimed",
+					"type": "boolean",
+					"indexed": true,
+					"defaultValue": false
+				},
+				{
+					"slug": "gallery",
+					"label": "Photos",
+					"type": "repeater",
+					"validation": {
+						"subFields": [
+							{
+								"slug": "image",
+								"label": "Photo",
+								"type": "image",
+								"required": true
+							}
+						]
+					}
+				},
+				{
+					"slug": "is_featured",
+					"label": "Featured",
+					"type": "boolean",
+					"indexed": true,
+					"defaultValue": false
+				},
+				{
+					"slug": "owner_name",
+					"label": "Listed by",
+					"type": "string"
+				},
+				{
+					"slug": "rating_avg",
+					"label": "Rating",
+					"type": "number",
+					"indexed": true
+				},
+				{
+					"slug": "rating_count",
+					"label": "Rating count",
+					"type": "number"
+				},
+				{
+					"slug": "hours",
+					"label": "Hours",
+					"type": "text"
+				},
+				{
+					"slug": "services",
+					"label": "Services",
+					"type": "text"
+				},
+				{
+					"slug": "amenities",
+					"label": "Amenities",
+					"type": "string"
+				},
+				{
+					"slug": "price_range",
+					"label": "Price range",
+					"type": "string"
+				},
+				{
+					"slug": "cuisine",
+					"label": "Cuisine",
+					"type": "string"
+				},
+				{
+					"slug": "event_start",
+					"label": "Event start",
+					"type": "string",
+					"indexed": true
+				},
+				{
+					"slug": "event_end",
+					"label": "Event end",
+					"type": "string"
+				},
+				{
+					"slug": "expires_at",
+					"label": "Expires",
+					"type": "string"
+				},
+				{
+					"slug": "listing_status",
+					"label": "Listing status",
+					"type": "string",
+					"indexed": true,
+					"defaultValue": "live"
+				},
+				{
+					"slug": "type_fields",
+					"label": "Type fields",
+					"type": "text"
+				}
+			]
+		}
+	],
+	"taxonomies": [
+		{
+			"name": "listing_category",
+			"label": "Listing categories",
+			"labelSingular": "Listing category",
+			"hierarchical": true,
+			"collections": [
+				"listings"
+			],
+			"terms": [
+				{
+					"slug": "fine-dining",
+					"label": "Fine Dining"
+				},
+				{
+					"slug": "casual",
+					"label": "Casual"
+				},
+				{
+					"slug": "services",
+					"label": "Services"
+				},
+				{
+					"slug": "retail",
+					"label": "Retail"
+				},
+				{
+					"slug": "apartment",
+					"label": "Apartment"
+				},
+				{
+					"slug": "house",
+					"label": "House"
+				},
+				{
+					"slug": "boutique",
+					"label": "Boutique"
+				},
+				{
+					"slug": "health-wellness",
+					"label": "Health & Wellness"
+				}
+			]
+		},
+		{
+			"name": "listing_tag",
+			"label": "Listing tags",
+			"labelSingular": "Listing tag",
+			"hierarchical": false,
+			"collections": [
+				"listings"
+			],
+			"terms": [
+				{
+					"slug": "italian",
+					"label": "Italian"
+				},
+				{
+					"slug": "family-friendly",
+					"label": "Family friendly"
+				},
+				{
+					"slug": "open-late",
+					"label": "Open late"
+				}
+			]
+		},
+		{
+			"name": "listing_location",
+			"label": "Listing locations",
+			"labelSingular": "Listing location",
+			"hierarchical": true,
+			"collections": [
+				"listings"
+			],
+			"terms": [
+				{
+					"slug": "manhattan",
+					"label": "Manhattan"
+				},
+				{
+					"slug": "brooklyn",
+					"label": "Brooklyn"
+				},
+				{
+					"slug": "tribeca",
+					"label": "Tribeca"
+				},
+				{
+					"slug": "williamsburg",
+					"label": "Williamsburg"
+				},
+				{
+					"slug": "soho",
+					"label": "SoHo"
+				}
+			]
+		},
+		{
+			"name": "listing_feature",
+			"label": "Listing features",
+			"labelSingular": "Listing feature",
+			"hierarchical": false,
+			"collections": [
+				"listings"
+			],
+			"terms": [
+				{
+					"slug": "wifi",
+					"label": "WiFi"
+				},
+				{
+					"slug": "parking",
+					"label": "Parking"
+				},
+				{
+					"slug": "outdoor",
+					"label": "Outdoor Seating"
+				},
+				{
+					"slug": "credit-cards",
+					"label": "Credit Cards"
+				},
+				{
+					"slug": "wheelchair",
+					"label": "Wheelchair Accessible"
+				},
+				{
+					"slug": "pet-friendly",
+					"label": "Pet Friendly"
+				},
+				{
+					"slug": "delivery",
+					"label": "Delivery"
+				}
+			]
+		}
+	]
+}

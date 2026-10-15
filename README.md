@@ -28,10 +28,10 @@ Then sign in to the admin, open **Plugins**, then **Registry**, and install List
 
 Everything under `src/` that is not part of the EmDash blog template was copied from each plugin's site kit by following that plugin's install guide:
 
-- `src/pages/listings/`, `src/listora-block/`, `src/lib/listora.ts`: Listora
-- `src/components/Reviews.astro`, `RatingBadge.astro`, `src/lib/reviews-strings.ts`: WB Reviews
-- `src/components/Poll.astro`, `PollSlot.astro`, `MyVotes.astro`, `src/lib/polls-strings.ts`: WB Polls
-- `src/pages/roadmap/`, `src/pages/changelog/`, `src/components/VoteButton.astro`, `src/lib/roadmap-*.ts`: Product Roadmap
+- `src/pages/listings/`, `src/pages/account/index.astro`, `src/listora-block/`, `src/lib/listora.ts`, `src/lib/listora-strings.ts`: Listora (the heading "Find a partner" is set in `listora-strings.ts`)
+- `src/components/Reviews.astro`, `RatingBadge.astro`, `MyReviews.astro`, `src/pages/account/reviews.astro`, `src/lib/reviews-strings.ts`: WB Reviews
+- `src/components/Poll.astro`, `PollSlot.astro`, `MyVotes.astro`, `src/pages/account/votes.astro`, `src/lib/polls-strings.ts`: WB Polls
+- `src/pages/roadmap/`, `src/pages/changelog/`, `src/pages/account/roadmap-votes.astro`, `src/components/VoteButton.astro`, `RoadmapVotes.astro`, `src/lib/roadmap-*.ts`: Product Roadmap
 - `src/pages/docs/`, `src/components/DocSearch.astro`, `Helpful.astro`, `StillNeedHelp.astro`, `src/lib/knowx*.ts`: KnowX
 - `src/lib/wbcom-kit.ts`, `src/styles/wbcom-base.css`: shared by all five
 
